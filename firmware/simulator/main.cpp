@@ -62,7 +62,8 @@ enum State {
   STATE_AWAITING_PAD_REMOVAL,
   STATE_STOCK_CHECK,
   STATE_OUT_OF_STOCK,
-  STATE_OFFLINE
+  STATE_OFFLINE,
+  STATE_ERROR
 };
 
 State currentState = STATE_IDLE;
@@ -70,6 +71,7 @@ String phoneNumber = "";
 String currentCheckoutId = "";
 unsigned long stateTimer = 0;
 unsigned long pollTimer = 0;
+int dispenseRetries = 0;
 
 // --- Helper Functions ---
 void setLEDs(bool red, bool amber, bool green) {
@@ -212,7 +214,12 @@ void setup() {
 
 // --- Main Loop ---
 void loop() {
-  if (WiFi.status() != WL_CONNECTED && currentState != STATE_OFFLINE) {
+  // Prevent network drops from interrupting an active dispense cycle
+  if (WiFi.status() != WL_CONNECTED && 
+      currentState != STATE_OFFLINE && 
+      currentState != STATE_DISPENSING && 
+      currentState != STATE_AWAITING_PAD_REMOVAL && 
+      currentState != STATE_ERROR) {
     currentState = STATE_OFFLINE;
   }
 
@@ -328,13 +335,22 @@ void loop() {
       setLEDs(false, false, (millis() / 500) % 2 == 0);
       showMessage("READY", "Please take your pad", "from the slot below.");
       
-      bool padTaken = digitalRead(IR_RX_PIN) == HIGH; // Note: You'll have to manually switch the IR pin in simulator or let it timeout
+      bool padTaken = digitalRead(IR_RX_PIN) == HIGH; // Note: Manually trigger IR pin in sim
       
       if (padTaken) {
+        dispenseRetries = 0;
         delay(2000);
         currentState = STATE_STOCK_CHECK;
-      } else if (millis() - stateTimer > 10000) { // Shorter timeout for sim
-        currentState = STATE_STOCK_CHECK;
+      } else if (millis() - stateTimer > 10000) { 
+        if (dispenseRetries < 2) {
+          dispenseRetries++;
+          showMessage("RETRYING", "Pad may be stuck...", "Please wait.");
+          beep(500); delay(1000);
+          currentState = STATE_DISPENSING; // Spin motor again!
+        } else {
+          dispenseRetries = 0;
+          currentState = STATE_ERROR;
+        }
       }
       break;
     }
@@ -369,6 +385,17 @@ void loop() {
       if (millis() - pollTimer > 15000) {
         pollTimer = millis();
         connectWiFi(); 
+      }
+      break;
+    }
+    
+    case STATE_ERROR: {
+      setLEDs(true, false, false);
+      showMessage("SYSTEM ERROR", "Pad jammed!", "Contact admin.");
+      
+      if (millis() - pollTimer > 3000) {
+        pollTimer = millis();
+        beep(500); // Annoyingly beep to alert staff
       }
       break;
     }

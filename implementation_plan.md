@@ -30,8 +30,8 @@ must be designed, simulated, and confirmed printable on local FDM printers.
 | **Select CAD tool** (Fusion 360 / FreeCAD / OpenSCAD) and install it | You | `[DATE]` | `[ ]` |
 | **Initialise Git repository** and document its root path | You | `[DATE]` | `[ ]` |
 | Confirm price per pad (KES) | You | 2026-09-15 | `[x]` **KES 20** (configurable in `firmware_spec.md`) |
-| Confirm M-PESA Paybill or Till Number (register with Safaricom if needed) | You | `[DATE]` | `[ ]` |
-| Confirm Safaricom Daraja API credentials (Consumer Key + Secret) | You | `[DATE]` | `[ ]` |
+| Confirm M-PESA Paybill or Till Number (register with Safaricom if needed) | You | 2026-09-15 | `[x]` |
+| Confirm Safaricom Daraja API credentials (Consumer Key + Secret) | You | 2026-09-15 | `[x]` |
 | Confirm washroom wall type (tiles / concrete / drywall) for mount hardware | You | `[DATE]` | `[ ]` |
 | Confirm 4×4 keypad module physical dimensions | You | `[DATE]` | `[ ]` |
 | Confirm 1.3" OLED display physical dimensions | You | `[DATE]` | `[ ]` |

@@ -141,7 +141,7 @@ bool sendSTKPush(String phone) {
     phone = "254" + phone.substring(1);
   }
 
-  String payload = "{\"phone\":\"" + phone + "\", \"amount\":" + String(PAD_PRICE_KES) + "}";
+  String payload = "{\"phone\":\"" + phone + "\"}";
   
   http.beginRequest();
   http.post("/mpesa/initiate");

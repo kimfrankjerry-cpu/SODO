@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const Database = require('better-sqlite3');
+const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
@@ -33,11 +34,20 @@ async function getAuthToken() {
   return response.data.access_token;
 }
 
+// Rate Limiter for STK Push (Max 3 requests per minute per IP)
+const stkLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 3,
+  message: { error: "Too many payment requests. Please wait a minute." }
+});
+
 // 1. Initiate STK Push (ESP32 calls this)
-app.post('/mpesa/initiate', async (req, res) => {
-  const { phone, amount } = req.body;
-  if (!phone || !amount) {
-    return res.status(400).json({ error: "Missing phone or amount" });
+app.post('/mpesa/initiate', stkLimiter, async (req, res) => {
+  const { phone } = req.body;
+  const amount = process.env.PAD_PRICE_KES; // HARDCODED SERVER PRICE (Fixes Price Tampering)
+  
+  if (!phone) {
+    return res.status(400).json({ error: "Missing phone number" });
   }
 
   try {
@@ -60,7 +70,7 @@ app.post('/mpesa/initiate', async (req, res) => {
       PartyA: phone,
       PartyB: shortcode,
       PhoneNumber: phone,
-      CallBackURL: `${process.env.CALLBACK_URL}/mpesa/callback`,
+      CallBackURL: `${process.env.CALLBACK_URL}/mpesa/callback?token=${process.env.CALLBACK_TOKEN}`,
       AccountReference: "SODO Dispenser",
       TransactionDesc: "Sanitary Pad Payment"
     };
@@ -85,6 +95,12 @@ app.post('/mpesa/initiate', async (req, res) => {
 
 // 2. Safaricom Callback (Safaricom calls this)
 app.post('/mpesa/callback', (req, res) => {
+  // Validate Security Token to prevent Callback Spoofing
+  if (req.query.token !== process.env.CALLBACK_TOKEN) {
+    console.warn("BLOCKED SPOOFED CALLBACK ATTEMPT!");
+    return res.status(403).send("Forbidden");
+  }
+
   console.log("Received callback:", JSON.stringify(req.body, null, 2));
   
   const callbackData = req.body?.Body?.stkCallback;

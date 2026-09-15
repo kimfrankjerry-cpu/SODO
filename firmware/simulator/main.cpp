@@ -6,7 +6,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Keypad.h>
-#include <ESP32Servo.h>
+// Removed ESP32Servo to speed up Wokwi compilation
 
 // --- Settings ---
 #define PAD_PRICE_KES    2
@@ -14,7 +14,7 @@
 #define POLL_INTERVAL    2000  
 #define MIN_STOCK_MM     15    
 #define MOTOR_90_MS      1000  
-#define BACKEND_URL      "https://f766028488640e.lhr.life"
+#define BACKEND_URL      "https://25386f9daf6cdb.lhr.life"
 
 // --- Pin Definitions ---
 #define I2C_SDA_PIN      21
@@ -40,7 +40,6 @@
 
 // --- Global Objects ---
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
-Servo dispenserServo;
 
 const byte ROWS = 4; 
 const byte COLS = 4; 
@@ -143,7 +142,7 @@ bool sendSTKPush(String phone) {
   
   if (phone.startsWith("0")) phone = "254" + phone.substring(1);
 
-  String payload = "{\"phone\":\"" + phone + "\", \"amount\":" + String(PAD_PRICE_KES) + "}";
+  String payload = "{\"phone\":\"" + phone + "\"}";
   int httpCode = http.POST(payload);
   
   if (httpCode == 200) {
@@ -197,8 +196,10 @@ void setup() {
   pinMode(HC_TRIG_PIN, OUTPUT);
   pinMode(HC_ECHO_PIN, INPUT_PULLUP);
   
-  dispenserServo.attach(SERVO_PIN);
-  dispenserServo.write(0);
+  // Init Servo via native ledc (removes heavy ESP32Servo library)
+  ledcSetup(0, 50, 16); 
+  ledcAttachPin(SERVO_PIN, 0);
+  ledcWrite(0, 3276); // 0 degrees
   
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -312,9 +313,10 @@ void loop() {
       showMessage("PAID!", "Dispensing your pad...", "Please wait.");
       beep(100); delay(100); beep(100);
       
-      dispenserServo.write(90);
+      // 90 degrees = 4915, 0 degrees = 3276
+      ledcWrite(0, 4915);
       delay(MOTOR_90_MS);
-      dispenserServo.write(0);
+      ledcWrite(0, 3276);
       delay(MOTOR_90_MS);
       
       stateTimer = millis();

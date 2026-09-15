@@ -1,0 +1,45 @@
+# Smart Pad Dispenser — .gitignore
+
+# CAD source files (binaries, keep STL exports)
+*.f3d
+*.FCStd
+*.FCStd1
+
+# Slicer project files (large, local only)
+*.3mf
+*.gcode
+
+# Firmware build artifacts
+firmware/.pio/
+firmware/build/
+firmware/.vscode/
+
+# Backend server
+server/node_modules/
+server/.env
+server/*.db
+server/*.sqlite
+server/dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.venv/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / Editor
+.vscode/
+*.code-workspace
+.idea/
+
+# Secrets — NEVER commit
+*.env
+*.key
+secrets.*
+credentials.*

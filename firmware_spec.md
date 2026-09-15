@@ -130,7 +130,7 @@ Boot
 #define WIFI_SSID        "YourSSID"
 #define WIFI_PASSWORD    "YourPassword"
 #define BACKEND_URL      "https://your-server.railway.app"
-#define PAD_PRICE_KES    10          // Price per pad
+#define PAD_PRICE_KES    20          // Price per pad (KES) — update here to change price
 #define PAYMENT_TIMEOUT  60000       // ms — 60 seconds
 #define POLL_INTERVAL    2000        // ms — poll every 2 s
 #define MIN_STOCK_MM     15          // HC-SR04 distance threshold (mm)

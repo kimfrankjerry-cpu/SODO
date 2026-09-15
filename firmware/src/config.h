@@ -4,9 +4,10 @@
 #include <Arduino.h>
 
 // --- Network & API ---
-#define WIFI_SSID        "YourSSID"
-#define WIFI_PASSWORD    "YourPassword"
-#define BACKEND_URL      "https://your-public-url.here" // e.g. https://cool-loops-begin.loca.lt
+#define GSM_APN          "safaricom" // Safaricom APN
+#define GSM_USER         ""
+#define GSM_PASS         ""
+#define BACKEND_URL      "https://f766028488640e.lhr.life" // Replace with your Railway URL later
 
 // --- Settings ---
 #define PAD_PRICE_KES    2
@@ -16,6 +17,10 @@
 #define MOTOR_90_MS      1000  // ms to run servo for 90 deg (needs calibration)
 
 // --- Pin Definitions ---
+// SIM800L GSM Module (Hardware Serial 2)
+#define MODEM_RX_PIN     16
+#define MODEM_TX_PIN     17
+
 // OLED (I2C)
 #define I2C_SDA_PIN      21
 #define I2C_SCL_PIN      22

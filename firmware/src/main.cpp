@@ -1,6 +1,8 @@
+#define TINY_GSM_MODEM_SIM800
+
 #include <Arduino.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
+#include <TinyGsmClient.h>
+#include <ArduinoHttpClient.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -12,6 +14,17 @@
 // --- Global Objects ---
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 Servo dispenserServo;
+
+// GSM Modem setup
+HardwareSerial SerialAT(2); // Use UART2
+TinyGsm modem(SerialAT);
+// For HTTPS, we must use Secure client. (Note: SIM800L requires good power for HTTPS)
+TinyGsmClientSecure gsmClient(modem); 
+
+// Backend configuration (Extract host from BACKEND_URL in a real app, hardcoding for SIM800L simplicity)
+const char server[] = "f766028488640e.lhr.life"; 
+const int  port = 443;
+HttpClient http(gsmClient, server, port);
 
 // Keypad setup
 const byte ROWS = 4; 
@@ -82,77 +95,92 @@ int getStackDistanceMm() {
   digitalWrite(HC_TRIG_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(HC_TRIG_PIN, LOW);
-  long duration = pulseIn(HC_ECHO_PIN, HIGH, 30000); // 30ms timeout
-  if (duration == 0) return 999; // Error/Timeout
+  long duration = pulseIn(HC_ECHO_PIN, HIGH, 30000); 
+  if (duration == 0) return 999; 
   return duration * 0.034 / 2;
 }
 
-// --- Network Functions ---
-void connectWiFi() {
-  showMessage("WIFI", "Connecting to", WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  int retries = 0;
-  while (WiFi.status() != WL_CONNECTED && retries < 15) {
-    delay(1000);
-    retries++;
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    showMessage("WIFI", "Connected!", WiFi.localIP().toString());
-    delay(2000);
-  } else {
+// --- GSM Network Functions ---
+void connectGSM() {
+  showMessage("CELLULAR", "Init Modem...", "Please wait.");
+  
+  // Restart Modem
+  SerialAT.begin(9600, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
+  delay(3000);
+  
+  if (!modem.restart()) {
+    Serial.println("Failed to restart modem");
     currentState = STATE_OFFLINE;
+    return;
   }
+  
+  showMessage("CELLULAR", "Connecting to", "Network...");
+  if (!modem.waitForNetwork(60000L)) {
+    Serial.println("Network connection failed");
+    currentState = STATE_OFFLINE;
+    return;
+  }
+  
+  showMessage("CELLULAR", "Connecting to", "GPRS (Internet)...");
+  if (!modem.gprsConnect(GSM_APN, GSM_USER, GSM_PASS)) {
+    Serial.println("GPRS connection failed");
+    currentState = STATE_OFFLINE;
+    return;
+  }
+
+
+  showMessage("CELLULAR", "Connected!", "GPRS Ready.");
+  delay(2000);
+  currentState = STATE_STOCK_CHECK;
 }
 
 bool sendSTKPush(String phone) {
-  if (WiFi.status() != WL_CONNECTED) return false;
+  if (!modem.isGprsConnected()) return false;
   
-  HTTPClient http;
-  String url = String(BACKEND_URL) + "/mpesa/initiate";
-  http.begin(url);
-  http.addHeader("Content-Type", "application/json");
-  
-  // Format phone to 254... if it starts with 0
   if (phone.startsWith("0")) {
     phone = "254" + phone.substring(1);
   }
 
   String payload = "{\"phone\":\"" + phone + "\", \"amount\":" + String(PAD_PRICE_KES) + "}";
-  int httpCode = http.POST(payload);
   
+  http.beginRequest();
+  http.post("/mpesa/initiate");
+  http.sendHeader("Content-Type", "application/json");
+  http.sendHeader("Content-Length", payload.length());
+  http.beginBody();
+  http.print(payload);
+  http.endRequest();
+  
+  int httpCode = http.responseStatusCode();
   if (httpCode == 200) {
-    String response = http.getString();
+    String response = http.responseBody();
     JsonDocument doc;
     deserializeJson(doc, response);
     if (doc["success"]) {
       currentCheckoutId = doc["checkoutRequestId"].as<String>();
-      http.end();
       return true;
     }
   }
   
-  http.end();
   return false;
 }
 
 String checkPaymentStatus() {
-  if (WiFi.status() != WL_CONNECTED) return "FAILED";
+  if (!modem.isGprsConnected()) return "FAILED";
   
-  HTTPClient http;
-  String url = String(BACKEND_URL) + "/payment/status/" + currentCheckoutId;
-  http.begin(url);
+  String path = "/payment/status/" + currentCheckoutId;
+  http.get(path);
   
-  int httpCode = http.GET();
+  int httpCode = http.responseStatusCode();
   String status = "PENDING";
   
   if (httpCode == 200) {
-    String response = http.getString();
+    String response = http.responseBody();
     JsonDocument doc;
     deserializeJson(doc, response);
     status = doc["status"].as<String>();
   }
   
-  http.end();
   return status;
 }
 
@@ -160,7 +188,6 @@ String checkPaymentStatus() {
 void setup() {
   Serial.begin(115200);
   
-  // Init Pins
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_RED_PIN, OUTPUT);
   pinMode(LED_AMBER_PIN, OUTPUT);
@@ -168,39 +195,32 @@ void setup() {
   
   pinMode(IR_TX_PIN, OUTPUT);
   pinMode(IR_RX_PIN, INPUT);
-  digitalWrite(IR_TX_PIN, HIGH); // Enable IR TX
+  digitalWrite(IR_TX_PIN, HIGH);
   
   pinMode(HC_TRIG_PIN, OUTPUT);
   pinMode(HC_ECHO_PIN, INPUT);
   
-  // Init Servo
   dispenserServo.attach(SERVO_PIN);
-  dispenserServo.write(0); // Initial position
+  dispenserServo.write(0);
   
-  // Init OLED
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("OLED init failed");
     while (1);
   }
   
-  connectWiFi();
-  
-  if (currentState != STATE_OFFLINE) {
-    currentState = STATE_STOCK_CHECK;
-  }
+  connectGSM();
 }
 
 // --- Main Loop ---
 void loop() {
-  // Global WiFi check
-  if (WiFi.status() != WL_CONNECTED && currentState != STATE_OFFLINE) {
+  if (!modem.isNetworkConnected() && currentState != STATE_OFFLINE) {
     currentState = STATE_OFFLINE;
   }
 
   switch (currentState) {
     case STATE_IDLE: {
-      setLEDs(true, false, false); // Red
+      setLEDs(true, false, false);
       showMessage("PAD DISPENSER", "Price: KES " + String(PAD_PRICE_KES), "Press any key to buy");
       
       char key = keypad.getKey();
@@ -230,7 +250,6 @@ void loop() {
             delay(2000);
           }
         } else if (key == '*') {
-          // Backspace
           if (phoneNumber.length() > 0) {
             phoneNumber = phoneNumber.substring(0, phoneNumber.length() - 1);
           }
@@ -239,7 +258,6 @@ void loop() {
         }
       }
       
-      // Timeout 30s
       if (millis() - stateTimer > 30000) {
         currentState = STATE_IDLE;
       }
@@ -247,7 +265,7 @@ void loop() {
     }
     
     case STATE_STK_SENT: {
-      setLEDs(false, true, false); // Amber
+      setLEDs(false, true, false);
       showMessage("PLEASE WAIT", "Sending M-PESA prompt", "to " + phoneNumber + "...");
       
       if (sendSTKPush(phoneNumber)) {
@@ -264,7 +282,6 @@ void loop() {
     }
     
     case STATE_AWAITING_PAYMENT: {
-      // Blink Amber
       setLEDs(false, (millis() / 500) % 2 == 0, false);
       
       long timeLeft = (PAYMENT_TIMEOUT - (millis() - stateTimer)) / 1000;
@@ -294,11 +311,10 @@ void loop() {
     }
     
     case STATE_DISPENSING: {
-      setLEDs(false, false, true); // Green
+      setLEDs(false, false, true);
       showMessage("PAID!", "Dispensing your pad...", "Please wait.");
       beep(100); delay(100); beep(100);
       
-      // Rotate Servo 90 degrees and back
       dispenserServo.write(90);
       delay(MOTOR_90_MS);
       dispenserServo.write(0);
@@ -310,18 +326,15 @@ void loop() {
     }
     
     case STATE_AWAITING_PAD_REMOVAL: {
-      // Blink Green
       setLEDs(false, false, (millis() / 500) % 2 == 0);
       showMessage("READY", "Please take your pad", "from the slot below.");
       
-      // Check IR break beam (LOW means beam is broken by the pad)
       bool padTaken = digitalRead(IR_RX_PIN) == HIGH;
       
       if (padTaken) {
-        delay(2000); // Wait for them to pull it completely out
+        delay(2000);
         currentState = STATE_STOCK_CHECK;
       } else if (millis() - stateTimer > 30000) {
-        // Pad not taken after 30s, just go back to idle (abandoned)
         currentState = STATE_STOCK_CHECK;
       }
       break;
@@ -341,7 +354,6 @@ void loop() {
       setLEDs(true, false, false);
       showMessage("OUT OF STOCK", "Please check back", "later.");
       
-      // Periodically check if restocked
       if (millis() - pollTimer > 5000) {
         pollTimer = millis();
         if (getStackDistanceMm() <= MIN_STOCK_MM) {
@@ -352,12 +364,12 @@ void loop() {
     }
     
     case STATE_OFFLINE: {
-      setLEDs(true, true, false); // Red+Amber
-      showMessage("STATE_OFFLINE", "No Wi-Fi Connection", "Attempting reconnect...");
+      setLEDs(true, true, false);
+      showMessage("OFFLINE", "No Cellular Network", "Attempting reconnect...");
       
-      if (millis() - pollTimer > 10000) {
+      if (millis() - pollTimer > 15000) {
         pollTimer = millis();
-        connectWiFi(); // blocking reconnect attempt
+        connectGSM(); 
       }
       break;
     }

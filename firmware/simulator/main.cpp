@@ -12,7 +12,7 @@
 #define PAD_PRICE_KES    2
 #define PAYMENT_TIMEOUT  60000 
 #define POLL_INTERVAL    2000  
-#define MIN_STOCK_MM     15    
+#define MIN_STOCK_MM     150   // mm (calibrate)
 #define MOTOR_90_MS      1000  
 #define BACKEND_URL      "https://25386f9daf6cdb.lhr.life"
 
@@ -36,7 +36,7 @@
 #define KP_COL1          13
 #define KP_COL2          14
 #define KP_COL3          15
-#define KP_COL4          12  
+#define KP_COL4          5   // Was GPIO12 (boot strap pin)
 
 // --- Global Objects ---
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
@@ -110,7 +110,7 @@ int getStackDistanceMm() {
   digitalWrite(HC_TRIG_PIN, LOW);
   long duration = pulseIn(HC_ECHO_PIN, HIGH, 30000); 
   if (duration == 0) return 999; 
-  return duration * 0.034 / 2;
+  return duration * 0.343 / 2; // speed of sound 0.343 mm/us
 }
 
 // --- Wokwi Wi-Fi Network Functions ---
@@ -192,7 +192,7 @@ void setup() {
   pinMode(LED_GREEN_PIN, OUTPUT);
   
   pinMode(IR_TX_PIN, OUTPUT);
-  pinMode(IR_RX_PIN, INPUT);
+  pinMode(IR_RX_PIN, INPUT_PULLUP); // Open-collector receiver
   digitalWrite(IR_TX_PIN, HIGH);
   
   pinMode(HC_TRIG_PIN, OUTPUT);

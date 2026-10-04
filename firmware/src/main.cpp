@@ -99,7 +99,7 @@ int getStackDistanceMm() {
   digitalWrite(HC_TRIG_PIN, LOW);
   long duration = pulseIn(HC_ECHO_PIN, HIGH, 30000); 
   if (duration == 0) return 999; 
-  return duration * 0.034 / 2;
+  return duration * 0.343 / 2; // speed of sound 0.343 mm/us
 }
 
 // --- GSM Network Functions ---
@@ -196,7 +196,7 @@ void setup() {
   pinMode(LED_GREEN_PIN, OUTPUT);
   
   pinMode(IR_TX_PIN, OUTPUT);
-  pinMode(IR_RX_PIN, INPUT);
+  pinMode(IR_RX_PIN, INPUT_PULLUP); // Open-collector receiver
   digitalWrite(IR_TX_PIN, HIGH);
   
   pinMode(HC_TRIG_PIN, OUTPUT);

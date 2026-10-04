@@ -2,7 +2,7 @@
 
 > **MCU**: ESP32 (38-pin WROOM-32)
 > **Framework**: Arduino (via PlatformIO)
-> **Connectivity**: WiFi (primary) + SIM800L GSM (fallback)
+> **Connectivity**: A7672E 4G LTE Cat-1 (hardware rev B; firmware still targets SIM800L and needs updating)
 > **Payment**: M-PESA STK Push via backend server
 
 ---
@@ -81,14 +81,13 @@
 |------|-----------|----------|-----------|
 | 21 | I/O | SDA | OLED display (I2C) |
 | 22 | I/O | SCL | OLED display (I2C) |
-| 16 | IN | RX ← SIM800L TX | GSM module |
-| 17 | OUT | TX → SIM800L RX | GSM module |
-| 4 | OUT | Motor IN1 / PWM | L298N / DRV8833 |
-| 5 | OUT | Motor IN2 | L298N / DRV8833 |
-| 18 | OUT | IR TX enable | IR break-beam TX |
-| 19 | IN | IR RX signal | IR break-beam RX |
-| 23 | OUT | HC-SR04 TRIG | Ultrasonic sensor |
-| 25 | IN | HC-SR04 ECHO | Ultrasonic sensor |
+| 16 | IN | RX ← A7672E TXD | 4G module |
+| 17 | OUT | TX → A7672E RXD | 4G module |
+| 4 | OUT | Servo PWM | MG946R / MG996R |
+| 19 | IN | Pad sensor output (10k pull-up) | E18-D80NK |
+| 23 | OUT | PWRKEY | 4G module |
+| 21/22 | I/O | SDA/SCL (shared, 0x29) | VL6180X ToF sensor |
+| 18, 25 | — | Spare | — |
 | 26 | OUT | Buzzer | Passive buzzer |
 | 27 | OUT | LED Red | Status LED |
 | 32 | OUT | LED Green | Status LED |
@@ -100,10 +99,10 @@
 | 13 | OUT | Keypad Col 1 | 4×4 matrix |
 | 14 | OUT | Keypad Col 2 | 4×4 matrix |
 | 15 | OUT | Keypad Col 3 | 4×4 matrix |
-| 12 | OUT | Keypad Col 4 | 4×4 matrix |
+| 5 | OUT | Keypad Col 4 | 4×4 matrix |
 
 > ⚠️ GPIO 34–39 are INPUT-ONLY on ESP32 (no internal pull-up). Use external 10kΩ pull-ups on keypad row pins.
-> ⚠️ GPIO 12 must be LOW at boot or ESP32 fails to boot. Use with caution for keypad column.
+> ⚠️ GPIO 12 is a boot strapping pin; Keypad Col 4 was moved to GPIO 5 so a key held at power-on cannot block boot.
 
 ---
 

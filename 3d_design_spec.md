@@ -32,13 +32,13 @@
 | Component | L (mm) | W (mm) | H (mm) | Mounting / Notes |
 |-----------|--------|--------|--------|------------------|
 | ESP32 dev board (38-pin WROOM-32) | 55 | 28 | 12 | Pin row pitch 22.86 mm; verify with calipers |
-| HC-SR04 ultrasonic sensor | 45 | 20 | 15 | 2× M2 mounting holes |
+| VL6180X ToF board (MCU-6180) | `[MEASURE]` | `[MEASURE]` | `[MEASURE]` | Small I2C board; measure the one you buy |
 | 1.3" OLED display (SSD1306/SH1106) | 35.6 | 33.0 | 3.5 | Active area 29.4 × 14.7 mm; I2C 4-pin |
 | 4×4 matrix keypad | 69 | 77 | 1 | Membrane; adhesive or snap-fit retention |
-| SIM800L breakout board | 25 | 23 | 8 | Antenna connector on edge; SMA pigtail |
+| A7672E 4G board | `[MEASURE]` | `[MEASURE]` | `[MEASURE]` | Board size varies by vendor; leave room for SIM slot and LTE antenna lead |
 | Motor — see Section 1.5 below | — | — | — | Decision required |
-| Motor driver (L298N) | 43 | 43 | 27 | 2× M3 mounting holes |
-| IR break-beam TX/RX | 10 | 10 | 10 | 5 mm through-beam emitter/detector pair |
+| XL4005 buck module (replaces L298N — servo needs no driver) | 51 | 26 | 14 | 2× M3 holes; heatsink on top; verify with calipers |
+| E18-D80NK IR proximity switch | Ø18 × 45 | — | — | M18 threaded barrel with two nuts |
 
 ### 1.4 Local Printer Constraints
 
@@ -72,8 +72,8 @@
 - Power: use external 5V 2A supply directly (do NOT power from ESP32 5V pin)
 - Available from: RoboticsKe, Nerokas (est. KES 600–900)
 
-> ⚠️ MG996R draws up to **2.5 A stall current**. The 5V 2A mains adapter may be marginal under stall.
-> Upgrade to **5V 3A adapter** to allow headroom for servo + SIM800L peak draw (~2A) simultaneously.
+> ⚠️ The servo draws up to **2.5 A stall current**. Power comes from a 12 V 2 A adapter through an XL4005 buck (≈4.3 A at 5 V),
+> which covers the servo plus the 4G modem's peaks. Local stock: MG946R (same body size) at ArduinoTech.
 
 ---
 
@@ -156,24 +156,24 @@
 
 ## 4. Sensor Mount Specifications
 
-### 4.1 HC-SR04 Ultrasonic Mount
+### 4.1 VL6180X Time-of-Flight Mount
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| Sensor pocket depth | 15 mm | Retains sensor without glue |
+| Sensor pocket depth | board thickness + 1 mm | Retains board; window must stay clear |
 | Sensor pocket clearance | +0.4 mm each side | Print tolerance |
 | Pointing angle | 90° (straight down) | Perpendicular to pad stack top |
-| Distance from top pad | 30–200 mm | HC-SR04 dead zone is ~2 cm |
+| Distance to stack | ≥ 5 mm when full, ≤ 100 mm when empty | VL6180X reliable range is 5–100 mm |
 | Cable exit direction | Rear | Exits to electronics bay |
 
-### 4.2 IR Break-Beam Mount
+### 4.2 IR Pad Sensor Mount (E18-D80NK)
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| TX–RX separation | pad width − 5 mm | Beam crosses pad path centrally |
-| Beam height in slot | centre of pad thickness | Interruption is reliable |
-| Mount wall thickness | 3 mm | Blocks ambient light |
-| Snap-fit retention | 0.25 mm interference | No screws needed at this size |
+| Mounting hole | Ø18.5 mm | M18 barrel, clamped by its two nuts |
+| Aim | across the dispense slot, at the pad | Reflective sensor, so no receiver on the far side |
+| Far wall | matte, ≥ 80 mm away or angled | Stops the sensor seeing the wall as a pad |
+| Range setting | set with its rear screw | Adjust so an empty slot reads "no object" |
 
 ---
 
